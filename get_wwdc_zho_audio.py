@@ -6,6 +6,7 @@ from time import sleep
 import m3u8
 import requests
 from bs4 import BeautifulSoup
+from moviepy.editor import AudioFileClip, concatenate_audioclips
 from videogrep import vtt
 
 baseUrl = 'https://developer.apple.com'
@@ -54,9 +55,13 @@ for url in videoUrls:
     with open(baseName+'.srt', 'w') as f:
         f.write('\n'.join(subtitle))
 
+    clips = []
     audioIndex = m3u8.load(videoUrl + '/audio/zho/zho.m3u8')
     for fileAudio in audioIndex.files:
         sleep(randint(1, 2))
         r = requests.get(videoUrl + '/audio/zho/' + fileAudio)
         with open(join(baseName, fileAudio), 'wb') as f:
             f.write(r.content)
+        clips.append(AudioFileClip(join(baseName, fileAudio)))
+    audioClip = concatenate_audioclips(clips)
+    audioClip.write_audiofile(baseName+'.wav')
