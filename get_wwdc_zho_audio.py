@@ -24,7 +24,7 @@ for section in soup.find_all('section', 'row'):
 
 # Deal with eath video if Chinese (zho) audio and subtitles are available
 for url in videoUrls:
-    sleep(randint(1, 3))
+    sleep(randint(1, 2))
     r = requests.get(baseUrl + url)
     soup = BeautifulSoup(r.text, 'lxml')
     videoUrl = '/'.join(soup.find('video')['src'].split('/')[:-1])
@@ -36,47 +36,52 @@ for url in videoUrls:
         mkdir(baseName)
 
     # Get list of audio clips and save them
-    clips = []
-    audioIndex = m3u8.load(videoUrl + '/audio/zho/zho.m3u8')
-    if audioIndex.files:
-        for fileAudio in audioIndex.files:
-            if not exists(join(baseName, fileAudio)):
-                sleep(randint(1, 2))
-                r = requests.get(videoUrl + '/audio/zho/' + fileAudio)
-                with open(join(baseName, fileAudio), 'wb') as f:
-                    f.write(r.content)
-            FFmpeg(
-                global_options='-y',
-                inputs={join(baseName, fileAudio): None},
-                outputs={join(baseName, fileAudio+'.wav'): None}
-            ).run()
-            clips.append(AudioFileClip(join(baseName, fileAudio+'.wav')))
+    if not exists(baseName+'.wav'):
+        clips = []
+        audioIndex = m3u8.load(videoUrl + '/audio/zho/zho.m3u8')
+        if audioIndex.files:
+            for fileAudio in audioIndex.files:
+                if not exists(join(baseName, fileAudio)):
+                    sleep(randint(3, 5))
+                    print(videoUrl + '/audio/zho/' + fileAudio)
+                    r = requests.get(videoUrl + '/audio/zho/' + fileAudio)
+                    with open(join(baseName, fileAudio), 'wb') as f:
+                        f.write(r.content)
+                FFmpeg(
+                    global_options='-y',
+                    inputs={join(baseName, fileAudio): None},
+                    outputs={join(baseName, fileAudio+'.wav'): None}
+                ).run()
+                clips.append(AudioFileClip(join(baseName, fileAudio+'.wav'), fps=48000))
 
-        # Concat audio clips and save in one PCM wave format file
-        audioClip = concatenate_audioclips(clips)
-        audioClip.write_audiofile(baseName+'.wav')
+            # Concat audio clips and save in one PCM wave format file
+            audioClip = concatenate_audioclips(clips)
+            audioClip.write_audiofile(baseName+'.wav')
+            audioClip.close()
 
     # Get list of subtitles in VTT format and save them
-    sentences = []
-    subtitleIndex = m3u8.load(videoUrl + '/subtitles/zho/prog_index.m3u8')
-    if subtitleIndex.files:
-        for fileSeq in subtitleIndex.files:
-            sleep(randint(1, 2))
-            r = requests.get(videoUrl + '/subtitles/zho/' + fileSeq)
-            sentences = sentences + vtt.parse_auto_sub(r.text)
-            with open(join(baseName, fileSeq), 'w') as f:
-                f.write(r.text)
+    if not exists(baseName+'.srt'):
+        sentences = []
+        subtitleIndex = m3u8.load(videoUrl + '/subtitles/zho/prog_index.m3u8')
+        if subtitleIndex.files:
+            for fileSeq in subtitleIndex.files:
+                sleep(randint(2, 3))
+                print(videoUrl + '/subtitles/zho/' + fileSeq)
+                r = requests.get(videoUrl + '/subtitles/zho/' + fileSeq)
+                sentences = sentences + vtt.parse_auto_sub(r.text)
+                with open(join(baseName, fileSeq), 'w') as f:
+                    f.write(r.text)
 
-        # Concat subtitles and save in one SRT format file
-        subtitle = []
-        for sent in sentences:
-            sent['words'] = []
-            sent['words'].append({'start': sent['start']})
-            sent['words'].append({'end': sent['end']})
-        for sub in vtt.convert_to_srt(sentences).split('\n'):
-            if ' --> ' in sub:
-                subtitle.append(sub.replace('.', ','))
-            else:
-                subtitle.append(sub)
-        with open(baseName+'.srt', 'w') as f:
-            f.write('\n'.join(subtitle))
+            # Concat subtitles and save in one SRT format file
+            subtitle = []
+            for sent in sentences:
+                sent['words'] = []
+                sent['words'].append({'start': sent['start']})
+                sent['words'].append({'end': sent['end']})
+            for sub in vtt.convert_to_srt(sentences).split('\n'):
+                if ' --> ' in sub:
+                    subtitle.append(sub.replace('.', ','))
+                else:
+                    subtitle.append(sub)
+            with open(baseName+'.srt', 'w') as f:
+                f.write('\n'.join(subtitle))
