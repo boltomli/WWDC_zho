@@ -1,5 +1,5 @@
-from os import mkdir
-from os.path import isdir, join
+from os import mkdir, remove
+from os.path import exists, isdir, join
 from random import randint
 from time import sleep
 
@@ -31,6 +31,8 @@ for url in videoUrls:
 
     baseName = videoUrl.split('/')[-1]
     if not isdir(baseName):
+        if exists(baseName):
+            remove(baseName)
         mkdir(baseName)
 
     # Get list of audio clips and save them
@@ -38,11 +40,13 @@ for url in videoUrls:
     audioIndex = m3u8.load(videoUrl + '/audio/zho/zho.m3u8')
     if audioIndex.files:
         for fileAudio in audioIndex.files:
-            sleep(randint(1, 2))
-            r = requests.get(videoUrl + '/audio/zho/' + fileAudio)
-            with open(join(baseName, fileAudio), 'wb') as f:
-                f.write(r.content)
+            if not exists(join(baseName, fileAudio)):
+                sleep(randint(1, 2))
+                r = requests.get(videoUrl + '/audio/zho/' + fileAudio)
+                with open(join(baseName, fileAudio), 'wb') as f:
+                    f.write(r.content)
             FFmpeg(
+                global_options='-y',
                 inputs={join(baseName, fileAudio): None},
                 outputs={join(baseName, fileAudio+'.wav'): None}
             ).run()

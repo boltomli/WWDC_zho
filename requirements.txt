@@ -1,4 +1,5 @@
 bs4
+ffmpy
 lxml
 m3u8
 moviepy
