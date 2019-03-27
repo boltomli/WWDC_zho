@@ -1,6 +1,6 @@
 from os import mkdir
 from os.path import isdir, join
-from random import random
+from random import randint
 from time import sleep
 
 import m3u8
@@ -20,38 +20,43 @@ for section in soup.find_all('section', 'row'):
             videoUrls.append(video['href'])
 
 for url in videoUrls:
-    sleep(random(3))
+    sleep(randint(1, 3))
     r = requests.get(baseUrl + url)
     soup = BeautifulSoup(r.text, 'lxml')
     videoUrl = '/'.join(soup.find('video')['src'].split('/')[:-1])
 
-    if not isdir(videoUrl.split('/')[-1]):
-        mkdir(videoUrl.split('/')[-1])
+    baseName = videoUrl.split('/')[-1]
+    if not isdir(baseName):
+        mkdir(baseName)
+
+    sentences = []
 
     subtitleIndex = m3u8.load(videoUrl + '/subtitles/zho/prog_index.m3u8')
     for fileSeq in subtitleIndex.files:
-        sleep(random(2))
+        sleep(randint(1, 2))
         r = requests.get(videoUrl + '/subtitles/zho/' + fileSeq)
-        sentences = vtt.parse_auto_sub(r.text)
-        for sent in sentences:
-            sent['words'] = []
-            sent['words'].append({'start': sent['start']})
-            sent['words'].append({'end': sent['end']})
-        subs = vtt.convert_to_srt(sentences)
-        subtitle = []
-        for sub in subs.split('\n'):
-            if ' --> ' in sub:
-                subtitle.append(sub.replace('.', ','))
-            else:
-                subtitle.append(sub)
-        with open(join(videoUrl.split('/')[-1], fileSeq), 'w') as f:
+        sentences = sentences + vtt.parse_auto_sub(r.text)
+        with open(join(baseName, fileSeq), 'w') as f:
             f.write(r.text)
-        with open(join(videoUrl.split('/')[-1], fileSeq+'.srt'), 'w') as f:
-            f.write('\n'.join(subtitle))
+
+    for sent in sentences:
+        sent['words'] = []
+        sent['words'].append({'start': sent['start']})
+        sent['words'].append({'end': sent['end']})
+    subs = vtt.convert_to_srt(sentences)
+
+    subtitle = []
+    for sub in subs.split('\n'):
+        if ' --> ' in sub:
+            subtitle.append(sub.replace('.', ','))
+        else:
+            subtitle.append(sub)
+    with open(baseName+'.srt', 'w') as f:
+        f.write('\n'.join(subtitle))
 
     audioIndex = m3u8.load(videoUrl + '/audio/zho/zho.m3u8')
     for fileAudio in audioIndex.files:
-        sleep(random(2))
+        sleep(randint(1, 2))
         r = requests.get(videoUrl + '/audio/zho/' + fileAudio)
-        with open(join(videoUrl.split('/')[-1], fileAudio), 'wb') as f:
+        with open(join(baseName, fileAudio), 'wb') as f:
             f.write(r.content)
