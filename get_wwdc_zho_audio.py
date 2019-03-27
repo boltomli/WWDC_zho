@@ -6,6 +6,7 @@ from time import sleep
 import m3u8
 import requests
 from bs4 import BeautifulSoup
+from ffmpy import FFmpeg
 from moviepy.editor import AudioFileClip, concatenate_audioclips
 from videogrep import vtt
 
@@ -41,7 +42,11 @@ for url in videoUrls:
             r = requests.get(videoUrl + '/audio/zho/' + fileAudio)
             with open(join(baseName, fileAudio), 'wb') as f:
                 f.write(r.content)
-            clips.append(AudioFileClip(join(baseName, fileAudio)))
+            FFmpeg(
+                inputs={join(baseName, fileAudio): None},
+                outputs={join(baseName, fileAudio+'.wav'): None}
+            ).run()
+            clips.append(AudioFileClip(join(baseName, fileAudio+'.wav')))
 
         # Concat audio clips and save in one PCM wave format file
         audioClip = concatenate_audioclips(clips)
